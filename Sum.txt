@@ -1,0 +1,81 @@
+import java.io.IOException;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.*;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+public class Sum
+{
+	public static void main(String args[])throws Exception
+	{
+		Configuration conf = new Configuration();
+		conf.addResource(new Path("/usr/local/hadoop-2.6.0/etc/hadoop/core-site.xml"));
+		conf.addResource(new Path("/usr/local/hadoop-2.6.0/etc/hadoop/hdfs-site.xml"));
+		
+	
+		Job job = new Job(conf,"Task2");
+		job.setMapOutputKeyClass(Text.class);
+		job.setMapOutputValueClass(IntWritable.class);
+		job.setOutputKeyClass(Text.class);
+		job.setOutputValueClass(IntWritable.class);
+		job.setNumReduceTasks(1);
+		job.setMapperClass(Task2Mapper.class);
+		job.setReducerClass(Task2Reducer.class);
+		
+		FileInputFormat.addInputPath(job, new Path("/user/acadgild/f2/p*"));
+		FileOutputFormat.setOutputPath(job, new Path("/user/acadgild/MR2Result"));
+		
+		Path output = new Path("/user/acadgild/MR2Result");
+		output.getFileSystem(conf).delete(output);
+		
+		job.waitForCompletion(true);
+	}
+
+}
+
+class Task2Mapper extends Mapper<LongWritable,Text,Text,IntWritable> 
+{
+	IntWritable iw =new IntWritable(1) ;
+	Text okey = new Text();
+	
+	public void map(LongWritable key,Text value,Context context) throws IOException, InterruptedException
+	{
+		System.out.println("Input key value pair :"+key+" "+value);
+		String token[]=value.toString().split(",");
+		if(token[0].equals("NA"))
+		{
+			System.out.println("Invalid Records :"+key+" "+value);
+			
+		}
+		else
+		{
+			okey.set(token[0]);
+			System.out.println("Valid Records :"+key+" "+value);	
+			context.write(okey,iw);
+		}
+	}
+}
+
+class Task2Reducer extends Reducer<Text,IntWritable,Text,IntWritable>
+{
+	IntWritable result = new IntWritable();
+	public void reduce(Text key,Iterable<IntWritable> values, Context context) throws IOException, InterruptedException
+	{
+		int sum =0;
+		System.out.println(key);
+		for(IntWritable val:values)
+		{
+			sum = sum +val.get();
+			System.out.println("  "+val);
+		}
+		System.out.println(" Sum "+sum);
+		result.set(sum);
+		context.write(key, result);
+	}
+}
